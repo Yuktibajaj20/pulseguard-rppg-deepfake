@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const API = (import.meta.env.VITE_API_URL || "https://pulseguard-api-xcbk.onrender.com").replace(/\/$/, "");
 const STEPS = [
   "Uploading video",
   "Detecting face and landmarks",
@@ -8,6 +8,7 @@ const STEPS = [
   "Filtering noise and estimating heart rate",
   "Comparing facial regions",
 ];
+ 
 const pretty = (k) => String(k).toLowerCase().replace(/_/g, " ").replace(/^\w|\s\w/g, (c) => c.toUpperCase());
 const fmt = (n, d = 1) => (typeof n === "number" && isFinite(n) ? n.toFixed(d) : "—");
 
