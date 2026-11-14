@@ -79,4 +79,34 @@ async def analyze(file: UploadFile = File(...)):
 
             temp_file.write(content)
             temp_path = temp_file.name
-            
+
+        # Run CPU-intensive analysis outside the async event loop
+        result = await run_in_threadpool(
+            analyze_video,
+            temp_path
+        )
+
+        return result
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=422,
+            detail=str(error)
+        )
+
+    except Exception as error:
+
+        print("Analysis error:", repr(error))
+
+        raise HTTPException(
+            status_code=500,
+            detail="Video analysis failed"
+        )
+
+    finally:
+
+        await file.close()
+
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
