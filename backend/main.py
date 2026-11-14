@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
@@ -17,22 +16,11 @@ app = FastAPI(
 )
 
 
-# Frontend URLs configured through environment variables.
-# Local development works by default.
-allowed_origins = [
-    origin.strip()
-    for origin in os.getenv(
-        "FRONTEND_URL",
-        "http://localhost:5173,http://127.0.0.1:5173"
-    ).split(",")
-    if origin.strip()
-]
-
-
+# Allow requests from any frontend (the API has no logins or cookies).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -91,34 +79,4 @@ async def analyze(file: UploadFile = File(...)):
 
             temp_file.write(content)
             temp_path = temp_file.name
-
-        # Run CPU-intensive analysis outside the async event loop.
-        result = await run_in_threadpool(
-            analyze_video,
-            temp_path
-        )
-
-        return result
-
-    except ValueError as error:
-
-        raise HTTPException(
-            status_code=422,
-            detail=str(error)
-        )
-
-    except Exception as error:
-
-        print("Analysis error:", repr(error))
-
-        raise HTTPException(
-            status_code=500,
-            detail="Video analysis failed"
-        )
-
-    finally:
-
-        await file.close()
-
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+            
