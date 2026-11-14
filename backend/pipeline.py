@@ -1,6 +1,4 @@
 
-import numpy as np
-
 from signal_processing.rgb_extraction import extract_rgb_signals
 from signal_processing.green import extract_green_signal
 
@@ -11,7 +9,7 @@ from features.quality import assess_signal_quality
 
 def analyze_video(video_path):
 
-    # 1. Extract RGB signals
+    # 1. Extract RGB signals from facial regions
     rgb_data = extract_rgb_signals(video_path)
 
     region_outputs = {}
@@ -28,33 +26,39 @@ def analyze_video(video_path):
 
             region_outputs[name] = output
 
-            spectral_features[name] = (
-                calculate_spectral_features(output)
+            spectral_features[name] = calculate_spectral_features(
+                output
             )
 
         except (ValueError, FloatingPointError) as error:
             print(f"{name} processing failed: {error}")
 
-    # 3. Calculate regional features
+    # 3. Ensure at least one region produced a usable signal
+    if not region_outputs:
+        raise ValueError(
+            "No usable rPPG signals could be extracted from the video. "
+            "Try a clearer video with a visible face and sufficient duration."
+        )
+
+    # 4. Calculate regional features
     regional_features = calculate_regional_features(
         region_outputs
     )
 
-    # 4. Assess signal quality
+    # 5. Assess signal quality
     quality = assess_signal_quality(
         region_outputs,
         regional_features
     )
 
-    # 5. Determine preliminary assessment
-    if quality["quality"] != "ACCEPTABLE":
+    # 6. Determine preliminary assessment
+    if quality["status"] != "ACCEPTABLE":
         assessment = "INCONCLUSIVE"
-
     else:
         # Signal quality alone cannot establish authenticity.
         assessment = "REVIEW_REQUIRED"
 
-    # 6. Prepare results
+    # 7. Prepare results
     heart_rates = regional_features["heart_rates"]
 
     return {
@@ -68,11 +72,8 @@ def analyze_video(video_path):
         },
 
         "heart_rates": heart_rates,
-
         "spectral_features": spectral_features,
-
         "regional_features": regional_features,
-
         "signal_quality": quality,
 
         "disclaimer": (
@@ -81,3 +82,4 @@ def analyze_video(video_path):
             "whether a video is authentic or manipulated."
         )
     }
+

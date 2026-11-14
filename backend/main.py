@@ -16,17 +16,27 @@ app = FastAPI(
     version="1.0"
 )
 
-# Change this to your teammate's actual React URL
+
+# Frontend URLs configured through environment variables.
+# Local development works by default.
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "FRONTEND_URL",
+        "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
+    if origin.strip()
+]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173"
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
 
 MAX_FILE_SIZE = 100 * 1024 * 1024
 
@@ -82,7 +92,7 @@ async def analyze(file: UploadFile = File(...)):
             temp_file.write(content)
             temp_path = temp_file.name
 
-        # Run CPU-intensive analysis outside the async event loop
+        # Run CPU-intensive analysis outside the async event loop.
         result = await run_in_threadpool(
             analyze_video,
             temp_path
