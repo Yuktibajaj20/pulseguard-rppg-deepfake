@@ -9,8 +9,7 @@ from roi.roi_extraction import extract_rois
 def extract_rgb_signals(video_path):
 
     # Frames are streamed one by one, so memory stays small.
-    meta, frame_stream = iter_video(video_path)
-
+    meta, frame_stream = iter_video(video_path, target_fps=10, max_width=480, max_seconds=20)
     timestamps = []
 
     detector = FaceDetector()
