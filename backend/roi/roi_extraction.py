@@ -1,53 +1,79 @@
-
+import cv2
 import numpy as np
+
+
+# Landmark groups defining approximate skin regions.
+# Indices refer to MediaPipe Face Mesh's 478-point output.
+
+ROI_LANDMARKS = {
+
+    "forehead": [
+        10, 109, 67, 103, 54, 21, 162, 127,
+        234, 454, 356, 389, 251, 284, 332,
+        297, 338
+    ],
+
+    "left_cheek": [
+        50, 101, 118, 117, 123, 147,
+        213, 192, 214, 212, 216, 206,
+        203, 129, 98
+    ],
+
+    "right_cheek": [
+        280, 330, 347, 346, 352, 376,
+        433, 416, 434, 432, 436, 426,
+        423, 358, 327
+    ]
+}
 
 
 def extract_rois(frame, landmarks):
 
+    if landmarks is None:
+        return None
+
     height, width = frame.shape[:2]
 
-    points = np.asarray(landmarks)
-
-    if len(points) == 0:
+    if len(landmarks) < 478:
         return None
 
-    x_min = max(0, int(points[:, 0].min()))
-    x_max = min(width, int(points[:, 0].max()))
+    regions = {}
 
-    y_min = max(0, int(points[:, 1].min()))
-    y_max = min(height, int(points[:, 1].max()))
+    for region_name, indices in ROI_LANDMARKS.items():
 
-    face_width = x_max - x_min
-    face_height = y_max - y_min
+        points = np.array(
+            [landmarks[i] for i in indices],
+            dtype=np.int32
+        )
 
-    if face_width <= 0 or face_height <= 0:
-        return None
+        points[:, 0] = np.clip(
+            points[:, 0], 0, width - 1
+        )
 
-    def crop(y1, y2, x1, x2):
+        points[:, 1] = np.clip(
+            points[:, 1], 0, height - 1
+        )
 
-        top = max(0, min(height, int(y_min + y1 * face_height)))
-        bottom = max(0, min(height, int(y_min + y2 * face_height)))
+        hull = cv2.convexHull(points)
 
-        left = max(0, min(width, int(x_min + x1 * face_width)))
-        right = max(0, min(width, int(x_min + x2 * face_width)))
+        mask = np.zeros(
+            (height, width),
+            dtype=np.uint8
+        )
 
-        if bottom <= top or right <= left:
-            return None
+        cv2.fillPoly(
+            mask,
+            [hull],
+            255
+        )
 
-        region = frame[top:bottom, left:right]
+        # Keep only pixels inside the polygon.
+        pixels = frame[mask > 0]
 
-        if region.size == 0:
-            return None
+        # Reject extremely small regions.
+        if len(pixels) < 30:
+            regions[region_name] = None
+        else:
+            regions[region_name] = pixels
 
-        return region
-
-    rois = {
-        "forehead": crop(0.08, 0.28, 0.30, 0.70),
-        "left_cheek": crop(0.48, 0.72, 0.12, 0.42),
-        "right_cheek": crop(0.48, 0.72, 0.58, 0.88)
-    }
-
-    if any(region is None for region in rois.values()):
-        return None
-
-    return rois
+    return regions

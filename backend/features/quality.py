@@ -1,46 +1,70 @@
-
 import numpy as np
 
 
 def assess_signal_quality(region_outputs, regional_features):
+    """
+    Provisional quality gate.
+
+    Thresholds are engineering starting points, not validated
+    deepfake-detection thresholds.
+    """
 
     reasons = []
 
-    valid_regions = len(region_outputs)
+    valid_regions = {}
 
-    if valid_regions < 2:
-        reasons.append("Insufficient valid facial regions")
+    for region, output in region_outputs.items():
+        if output is None:
+            continue
+
+        hr = output.get("heart_rate_bpm")
+        snr = output.get("snr_db")
+
+        if (
+            hr is not None
+            and snr is not None
+            and np.isfinite(hr)
+            and np.isfinite(snr)
+        ):
+            valid_regions[region] = output
+
+    if len(valid_regions) < 2:
+        reasons.append("Fewer than two valid facial regions")
 
     snr_values = [
         output["snr_db"]
-        for output in region_outputs.values()
-        if np.isfinite(output["snr_db"])
+        for output in valid_regions.values()
     ]
 
-    if len(snr_values) < 2:
-        reasons.append("Insufficient valid SNR measurements")
+    mean_snr = (
+        float(np.mean(snr_values))
+        if snr_values else None
+    )
 
-    # Initial engineering threshold, not a validated clinical cutoff
-    if snr_values and np.mean(snr_values) < 0:
-        reasons.append("Low average signal-to-noise ratio")
+    if mean_snr is None:
+        reasons.append("No valid SNR measurements")
+    elif mean_snr < -5:
+        reasons.append("Low spectral pulse SNR")
 
-    difference = regional_features["hr_difference_bpm"]
+    heart_rates = [
+        output["heart_rate_bpm"]
+        for output in valid_regions.values()
+    ]
 
-    if difference is None or difference > 15:
-        reasons.append("Heart-rate estimates disagree across regions")
+    hr_spread = (
+        float(max(heart_rates) - min(heart_rates))
+        if len(heart_rates) >= 2 else None
+    )
 
-    correlation = regional_features["mean_correlation"]
+    if hr_spread is not None and hr_spread > 15:
+        reasons.append("Large heart-rate disagreement between regions")
 
-    if correlation is None:
-        reasons.append("Regional correlation unavailable")
-
-    quality = "ACCEPTABLE" if not reasons else "LOW"
+    status = "ACCEPTABLE" if not reasons else "LOW"
 
     return {
-        "quality": quality,
-        "reasons": reasons,
-        "mean_snr_db": (
-            float(np.mean(snr_values))
-            if snr_values else None
-        )
+        "status": status,
+        "mean_snr_db": mean_snr,
+        "heart_rate_spread_bpm": hr_spread,
+        "valid_region_count": len(valid_regions),
+        "reasons": reasons
     }
