@@ -1,102 +1,69 @@
-import numpy as np
 import cv2
+import numpy as np
 
-from video.frame_reader import read_video
+from video.frame_reader import iter_video
 from video.face_detection import FaceDetector
 from roi.roi_extraction import extract_rois
 
 
 def extract_rgb_signals(video_path):
 
-    video_data = read_video(video_path)
+    # Frames are streamed one by one, so memory stays small.
+    meta, frame_stream = iter_video(video_path)
 
-    frames = video_data["frames"]
-    timestamps = video_data["timestamps"]
-
-    fps = video_data["fps"]
-    duration = video_data["duration"]
+    timestamps = []
 
     detector = FaceDetector()
 
-    region_names = [
-        "forehead",
-        "left_cheek",
-        "right_cheek"
-    ]
-
-    rgb_signals = {
-        name: [] for name in region_names
+    regions = {
+        "forehead": [],
+        "left_cheek": [],
+        "right_cheek": []
     }
 
-    face_detected_count = 0
-
     try:
+        for timestamp, frame in frame_stream:
 
-        for frame, timestamp in zip(frames, timestamps):
+            timestamps.append(timestamp)
 
-            landmarks = detector.detect(
-                frame,
-                int(timestamp * 1000)
-            )
+            landmarks = detector.detect(frame)
 
             if landmarks is None:
-
-                for name in region_names:
-                    rgb_signals[name].append(
-                        [np.nan, np.nan, np.nan]
-                    )
-
+                for name in regions:
+                    regions[name].append([np.nan, np.nan, np.nan])
                 continue
 
-            face_detected_count += 1
+            rois = extract_rois(frame, landmarks)
 
-            rois = extract_rois(
-                frame,
-                landmarks
-            )
+            if rois is None:
+                for name in regions:
+                    regions[name].append([np.nan, np.nan, np.nan])
+                continue
 
-            for name in region_names:
+            for name, roi in rois.items():
 
-                pixels = rois.get(name)
+                # OpenCV stores images in BGR order.
+                rgb = cv2.cvtColor(
+                    roi,
+                    cv2.COLOR_BGR2RGB
+                )
 
-                if pixels is None or len(pixels) < 30:
-
-                    rgb_signals[name].append(
-                        [np.nan, np.nan, np.nan]
-                    )
-
-                    continue
-
-                # OpenCV frame is BGR.
-                mean_bgr = np.mean(
-                    pixels,
+                mean_rgb = np.mean(
+                    rgb.reshape(-1, 3),
                     axis=0
                 )
 
-                mean_rgb = mean_bgr[::-1]
-
-                rgb_signals[name].append(
-                    mean_rgb.tolist()
-                )
+                regions[name].append(mean_rgb)
 
     finally:
         detector.close()
 
-    for name in region_names:
-        rgb_signals[name] = np.asarray(
-            rgb_signals[name],
-            dtype=float
-        )
-
-    face_detection_rate = (
-        face_detected_count / len(frames)
-        if frames else 0
-    )
-
     return {
-        "timestamps": np.asarray(timestamps),
-        "fps": fps,
-        "duration": duration,
-        "regions": rgb_signals,
-        "face_detection_rate": face_detection_rate
+        "timestamps": np.asarray(timestamps, dtype=float),
+        "fps": meta["fps"],
+        "duration": meta["duration"],
+        "regions": {
+            name: np.asarray(values, dtype=float)
+            for name, values in regions.items()
+        }
     }
