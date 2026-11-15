@@ -79,5 +79,13 @@ def assess_signal_quality(region_outputs, regional_features):
     return {
     "status": "ACCEPTABLE" if not reasons else "LOW",
     "reasons": reasons,
-    ...
+    
 }
+    # 6. Return quality assessment
+    return {
+        "status": status,
+        "reasons": reasons,
+        "mean_snr_db": mean_snr,
+        "valid_regions": len(valid_regions),
+        "heart_rate_spread_bpm": heart_rate_spread
+    }
