@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+test_videos/
+*.mp4
+.git

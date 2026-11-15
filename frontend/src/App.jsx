@@ -209,7 +209,7 @@ export default function App() {
                 <p>Mean correlation between region signals: <b>{fmt(corr, 2)}</b>. Heart-rate gap between regions: <b>{fmt(rf.hr_difference_bpm)} BPM</b>. Higher correlation and a smaller gap mean the regions tell the same story.</p>
               </div>
               <div className="slab"><h3>Signal quality</h3>
-                <span className="badge" style={inconclusive ? { background: "#cfc8e2", color: "#1b1040" } : {}}>{pretty(q.quality || "unknown")}</span>
+                <span className="badge" style={inconclusive ? { background: "#cfc8e2", color: "#1b1040" } : {}}>{pretty(q.status || "unknown")}</span>
                 <div className="stats">
                   <span>Valid regions: {rf.valid_regions ?? "—"}</span>
                   <span>Duration: {fmt(vd.duration_seconds)} s</span>
