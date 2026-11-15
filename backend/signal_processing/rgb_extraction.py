@@ -25,7 +25,7 @@ def extract_rgb_signals(video_path):
 
             timestamps.append(timestamp)
 
-            landmarks = detector.detect(frame)
+            landmarks = detector.detect(frame, int(timestamp * 1000))
 
             if landmarks is None:
                 for name in regions:
